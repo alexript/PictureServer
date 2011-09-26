@@ -12,7 +12,7 @@ import (
 	// "json"
         "os"
         //"strconv"
-        "old/template"
+        "template"
 )
 
 // These imports were added for deployment on App Engine.
