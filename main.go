@@ -55,7 +55,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
         check(err)
 
 
-	const max = 300 // Масштабируем пропорционально до 300 пикселей, если какая-либо сторона больше. 
+	const max = 600 // Масштабируем пропорционально до 600 пикселей, если какая-либо сторона больше. 
 	if b := i.Bounds(); b.Dx() > max || b.Dy() > max {
 		w, h := max, max
                 if b.Dx() > b.Dy() {
@@ -78,8 +78,35 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	err = storage.Put(key, barray)
 	storage.Close()
 	check(err)
+	
+	const maxth = 240 // Масштабируем пропорционально до 240 пикселей, если какая-либо сторона больше. 
+	if b := i.Bounds(); b.Dx() > maxth || b.Dy() > maxth {
+		w, h := maxth, maxth
+                if b.Dx() > b.Dy() {
+			h = b.Dy() * h / b.Dx()
+		} else {
+			w = b.Dx() * w / b.Dy()
+		}
+	        i = resize.Resize(i, i.Bounds(), w, h)
+        }
 
-	http.Redirect(w, r, "/img?id="+key, 302)
+        // Encode as a new JPEG image.
+	buf2 := new(bytes.Buffer)
+	buf2.Reset()
+	err = jpeg.Encode(buf2, i, nil)
+	check(err)
+
+	var barrayb []byte = buf2.Bytes()
+	var keyth string = "th-" + key
+	storageth, _ :=gocask.NewGocask("images/storage")
+	err = storageth.Put(keyth, barrayb)
+	storageth.Close()
+	check(err)
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expires", "-1")
+	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"img?id=" + keyth + "\"}")
 }
 
 // keyOf returns (part of) the SHA-1 hash of the data, as a hex string.
@@ -98,7 +125,7 @@ func img(w http.ResponseWriter, r *http.Request) {
 	check(err)
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
-	w.Header().Set("Expites", "-1")
+	w.Header().Set("Expires", "-1")
 	w.Write(buf)
 }
 
