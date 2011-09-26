@@ -7,29 +7,32 @@ import (
 	"image"
 	"image/jpeg"
 	_ "image/png" // import so we can read PNG files.
-        "io"
-	"io/ioutil"
         "os"
         "template"
 	"resize"
         "crypto/sha1"
+	"gocask"
 )
+
+// TODO: mutex for storage
 
 type Error struct {
 	Error os.Error
 }
 
 var (
-        uploadTemplate = template.MustParseFile("templates/upload.html", nil)
+        uploadTemplate, _ = template.ParseFile("templates/upload.html")
         editTemplate   *template.Template // set up in init()
-        //postTemplate   = template.MustParseFile("post.html", nil)
-        errorTemplate  = template.MustParseFile("templates/error.html", nil)
+        //postTemplate, _   = template.ParseFile("post.html")
+        errorTemplate, _  = template.ParseFile("templates/error.html")
+
 )
 
 func main(){
 	http.HandleFunc("/", errorHandler(upload))
 	http.HandleFunc("/img", errorHandler(img))
 	http.ListenAndServe(":8080",nil)
+	
 }
 
 type Image struct {
@@ -49,7 +52,6 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
         // Grab the image data
 	i, _, err := image.Decode(f)
-	// println(imageformatname)
         check(err)
 
 
@@ -66,16 +68,18 @@ func upload(w http.ResponseWriter, r *http.Request) {
 
         // Encode as a new JPEG image.
 	buf := new(bytes.Buffer)
+	buf.Reset()
 	err = jpeg.Encode(buf, i, nil)
 	check(err)
 
-	resizedfile, err := ioutil.TempFile("./images", "ltl-")
+	var barray []byte = buf.Bytes()
+	var key string = keyOf(barray)
+	storage, _ :=gocask.NewGocask("images/storage")
+	err = storage.Put(key, barray)
+	storage.Close()
 	check(err)
-	defer resizedfile.Close()
-	io.Copy(resizedfile, buf)
 
-
-	http.Redirect(w, r, "/img?id="+resizedfile.Name(), 302)
+	http.Redirect(w, r, "/img?id="+key, 302)
 }
 
 // keyOf returns (part of) the SHA-1 hash of the data, as a hex string.
@@ -86,8 +90,16 @@ func keyOf(data []byte) string {
 }
 
 func img(w http.ResponseWriter, r *http.Request) {
+
+	id := r.FormValue("id")
+	storage, _ :=gocask.NewGocask("images/storage")
+	buf, err := storage.Get(id)
+	storage.Close()
+	check(err)
 	w.Header().Set("Content-Type", "image/jpeg")
-	http.ServeFile(w, r, r.FormValue("id"))
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expites", "-1")
+	w.Write(buf)
 }
 
 func errorHandler(fn http.HandlerFunc) http.HandlerFunc {
