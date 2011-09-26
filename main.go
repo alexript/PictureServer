@@ -22,10 +22,10 @@ import (
 )
 
 var (
-        uploadTemplate = template.MustParseFile("upload.html", nil)
+        uploadTemplate = template.MustParseFile("templates/upload.html", nil)
         editTemplate   *template.Template // set up in init()
         //postTemplate   = template.MustParseFile("post.html", nil)
-        errorTemplate  = template.MustParseFile("error.html", nil)
+        errorTemplate  = template.MustParseFile("templates/error.html", nil)
 )
 
 func main(){
