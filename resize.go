@@ -102,12 +102,13 @@ func average(sum []uint64, w, h int, n uint64) image.Image {
         for y := 0; y < h; y++ {
                 for x := 0; x < w; x++ {
                         index := 4 * (y*w + x)
-                        ret.Pix[y*ret.Stride+x] = image.RGBAColor{
+			ret.SetRGBA(x, y, 
+                         image.RGBAColor{
                                 uint8(sum[index+0] / n),
                                 uint8(sum[index+1] / n),
                                 uint8(sum[index+2] / n),
                                 uint8(sum[index+3] / n),
-                        }
+                        })
                 }
         }
         return ret
