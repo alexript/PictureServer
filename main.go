@@ -12,14 +12,18 @@ import (
 	"resize"
         "crypto/md5"
 	"gocask"
+	"time"
+	"io"
 )
 
 // TODO: mutex for storage
 
+// Error container struct for error template.
 type Error struct {
 	Error os.Error
 }
 
+// global vars
 var (
         uploadTemplate, _ = template.ParseFile("templates/upload.html")
         editTemplate   *template.Template // set up in init()
@@ -28,6 +32,7 @@ var (
 
 )
 
+// Surprise!!!
 func main(){
 	http.HandleFunc("/", errorHandler(upload))
 	http.HandleFunc("/img", errorHandler(img))
@@ -36,10 +41,7 @@ func main(){
 	
 }
 
-type Image struct {
-        Data []byte
-}
-
+// Proportional image resize to max size by any side
 func resizeImage(i image.Image, max int) (image.Image) {
 	if b := i.Bounds(); b.Dx() > max || b.Dy() > max {
 		w, h := max, max
@@ -53,6 +55,26 @@ func resizeImage(i image.Image, max int) (image.Image) {
 	return i
 }
 
+// resize image, store and return resized image
+func storeImage(key string, i image.Image, maxsize int, storename string) (image.Image) {
+	// store big image
+	i = resizeImage(i, maxsize) // Масштабируем пропорционально до maxsize пикселей, если какая-либо сторона больше. 
+
+        // Encode as a new JPEG image.
+	buf := new(bytes.Buffer)
+	buf.Reset()
+	err := jpeg.Encode(buf, i, nil)
+	check(err)
+
+	var barray []byte = buf.Bytes()
+	storage, _ :=gocask.NewGocask("images/" + storename)
+	err = storage.Put(key, barray)
+	storage.Close()
+	check(err)
+	return i
+}
+
+// Catch post request, decode image and store it
 func upload(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
                 // No upload; show the upload form.
@@ -68,74 +90,57 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	i, _, err := image.Decode(f)
         check(err)
 
+	var key string = keyOf()
 
-	i = resizeImage(i, 600) // Масштабируем пропорционально до 600 пикселей, если какая-либо сторона больше. 
+	// store image
+	i = storeImage(key, i, 600, "storage")
+	i = storeImage(key, i, 240, "thumbs")
 
-        // Encode as a new JPEG image.
-	buf := new(bytes.Buffer)
-	buf.Reset()
-	err = jpeg.Encode(buf, i, nil)
-	check(err)
+	// generate result
 
-	var barray []byte = buf.Bytes()
-	var key string = keyOf(barray)
-	storage, _ :=gocask.NewGocask("images/storage")
-	err = storage.Put(key, barray)
-	storage.Close()
-	check(err)
-
-	i = resizeImage(i, 240) // Масштабируем пропорционально до 240 пикселей, если какая-либо сторона больше. 
-
-        // Encode as a new JPEG image.
-	buf.Reset()
-	err = jpeg.Encode(buf, i, nil)
-	check(err)
-
-	barray  = buf.Bytes()
-	storageth, _ :=gocask.NewGocask("images/thumbs")
-	err = storageth.Put(key, barray)
-	storageth.Close()
-	check(err)
-	
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
 	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\"}")
 }
 
-// keyOf returns the MD5 hash of the data, as a hex string.
-func keyOf(data []byte) string {
+// keyOf returns the MD5 hash of the current time in nanoseconds, as a hex string.
+func keyOf() string {
         md := md5.New()
-        md.Write(data)
-        return fmt.Sprintf("%x", string(md.Sum()))
+	io.WriteString(md, fmt.Sprintf("%u", time.Nanoseconds()))
+	return fmt.Sprintf("%x", string(md.Sum()))
 }
 
+// read image by key from storage
+func readImage(key string, storagename string) ([]byte) {
+	storage, _ :=gocask.NewGocask("images/" + storagename)
+	buf, err := storage.Get(key)
+	storage.Close()
+	check(err)
+	return buf
+}
+
+// catch /img request and return image
 func img(w http.ResponseWriter, r *http.Request) {
-
 	id := r.FormValue("id")
-	storage, _ :=gocask.NewGocask("images/storage")
-	buf, err := storage.Get(id)
-	storage.Close()
-	check(err)
+	buf := readImage(id, "storage")
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
 	w.Write(buf)
 }
 
+// catch /tmb request and return thumbnail
 func tmb(w http.ResponseWriter, r *http.Request) {
-
 	id := r.FormValue("id")
-	storage, _ :=gocask.NewGocask("images/thumbs")
-	buf, err := storage.Get(id)
-	storage.Close()
-	check(err)
+	buf := readImage(id, "thumbs")
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
 	w.Write(buf)
 }
 
+// error handler. Display error template with error message.
 func errorHandler(fn http.HandlerFunc) http.HandlerFunc {
         return func(w http.ResponseWriter, r *http.Request) {
                 defer func() {
