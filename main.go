@@ -40,6 +40,19 @@ type Image struct {
         Data []byte
 }
 
+func resizeImage(i image.Image, max int) (image.Image) {
+	if b := i.Bounds(); b.Dx() > max || b.Dy() > max {
+		w, h := max, max
+                if b.Dx() > b.Dy() {
+			h = b.Dy() * h / b.Dx()
+		} else {
+			w = b.Dx() * w / b.Dy()
+		}
+	        i = resize.Resize(i, i.Bounds(), w, h)
+        }
+	return i
+}
+
 func upload(w http.ResponseWriter, r *http.Request) {
         if r.Method != "POST" {
                 // No upload; show the upload form.
@@ -56,16 +69,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
         check(err)
 
 
-	const max = 600 // Масштабируем пропорционально до 600 пикселей, если какая-либо сторона больше. 
-	if b := i.Bounds(); b.Dx() > max || b.Dy() > max {
-		w, h := max, max
-                if b.Dx() > b.Dy() {
-			h = b.Dy() * h / b.Dx()
-		} else {
-			w = b.Dx() * w / b.Dy()
-		}
-	        i = resize.Resize(i, i.Bounds(), w, h)
-        }
+	i = resizeImage(i, 600) // Масштабируем пропорционально до 600 пикселей, если какая-либо сторона больше. 
 
         // Encode as a new JPEG image.
 	buf := new(bytes.Buffer)
@@ -79,17 +83,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	err = storage.Put(key, barray)
 	storage.Close()
 	check(err)
-	
-	const maxth = 240 // Масштабируем пропорционально до 240 пикселей, если какая-либо сторона больше. 
-	if b := i.Bounds(); b.Dx() > maxth || b.Dy() > maxth {
-		w, h := maxth, maxth
-                if b.Dx() > b.Dy() {
-			h = b.Dy() * h / b.Dx()
-		} else {
-			w = b.Dx() * w / b.Dy()
-		}
-	        i = resize.Resize(i, i.Bounds(), w, h)
-        }
+
+	i = resizeImage(i, 240) // Масштабируем пропорционально до 240 пикселей, если какая-либо сторона больше. 
 
         // Encode as a new JPEG image.
 	buf.Reset()
