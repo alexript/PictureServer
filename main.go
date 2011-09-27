@@ -31,6 +31,7 @@ var (
 func main(){
 	http.HandleFunc("/", errorHandler(upload))
 	http.HandleFunc("/img", errorHandler(img))
+	http.HandleFunc("/tmb", errorHandler(tmb))
 	http.ListenAndServe(":8080",nil)
 	
 }
@@ -91,22 +92,20 @@ func upload(w http.ResponseWriter, r *http.Request) {
         }
 
         // Encode as a new JPEG image.
-	buf2 := new(bytes.Buffer)
-	buf2.Reset()
-	err = jpeg.Encode(buf2, i, nil)
+	buf.Reset()
+	err = jpeg.Encode(buf, i, nil)
 	check(err)
 
-	var barrayb []byte = buf2.Bytes()
-	var keyth string = "th-" + key
-	storageth, _ :=gocask.NewGocask("images/storage")
-	err = storageth.Put(keyth, barrayb)
+	barray  = buf.Bytes()
+	storageth, _ :=gocask.NewGocask("images/thumbs")
+	err = storageth.Put(key, barray)
 	storageth.Close()
 	check(err)
 	
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
-	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"img?id=" + keyth + "\"}")
+	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\"}")
 }
 
 // keyOf returns (part of) the SHA-1 hash of the data, as a hex string.
@@ -120,6 +119,19 @@ func img(w http.ResponseWriter, r *http.Request) {
 
 	id := r.FormValue("id")
 	storage, _ :=gocask.NewGocask("images/storage")
+	buf, err := storage.Get(id)
+	storage.Close()
+	check(err)
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expires", "-1")
+	w.Write(buf)
+}
+
+func tmb(w http.ResponseWriter, r *http.Request) {
+
+	id := r.FormValue("id")
+	storage, _ :=gocask.NewGocask("images/thumbs")
 	buf, err := storage.Get(id)
 	storage.Close()
 	check(err)
