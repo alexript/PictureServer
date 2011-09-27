@@ -24,8 +24,6 @@ type Error struct {
 // global vars
 var (
         uploadTemplate, _ = template.ParseFile("templates/upload.html")
-        editTemplate   *template.Template // set up in init()
-        //postTemplate, _   = template.ParseFile("post.html")
         errorTemplate, _  = template.ParseFile("templates/error.html")
 	mu sync.Mutex
 )
