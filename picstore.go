@@ -24,10 +24,6 @@ func resizeImage(i image.Image, max int) (image.Image) {
 	return i
 }
 
-// TODO: mutex for storage
-
-
-
 // resize image, store and return resized image
 func Store(key string, i image.Image, maxsize int, storename string) (image.Image) {
 	// store big image
