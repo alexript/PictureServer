@@ -1,22 +1,19 @@
 package main
 
 import (
-	"bytes"
         "fmt"
         "http"
 	"image"
-	"image/jpeg"
+	_ "image/jpeg"
 	_ "image/png" // import so we can read PNG files.
         "os"
         "template"
-	"resize"
         "crypto/md5"
-	"gocask"
 	"time"
 	"io"
+	"picstore"
+	"errors"
 )
-
-// TODO: mutex for storage
 
 // Error container struct for error template.
 type Error struct {
@@ -41,38 +38,7 @@ func main(){
 	
 }
 
-// Proportional image resize to max size by any side
-func resizeImage(i image.Image, max int) (image.Image) {
-	if b := i.Bounds(); b.Dx() > max || b.Dy() > max {
-		w, h := max, max
-                if b.Dx() > b.Dy() {
-			h = b.Dy() * h / b.Dx()
-		} else {
-			w = b.Dx() * w / b.Dy()
-		}
-	        i = resize.Resize(i, i.Bounds(), w, h)
-        }
-	return i
-}
 
-// resize image, store and return resized image
-func storeImage(key string, i image.Image, maxsize int, storename string) (image.Image) {
-	// store big image
-	i = resizeImage(i, maxsize) // Масштабируем пропорционально до maxsize пикселей, если какая-либо сторона больше. 
-
-        // Encode as a new JPEG image.
-	buf := new(bytes.Buffer)
-	buf.Reset()
-	err := jpeg.Encode(buf, i, nil)
-	check(err)
-
-	var barray []byte = buf.Bytes()
-	storage, _ :=gocask.NewGocask("images/" + storename)
-	err = storage.Put(key, barray)
-	storage.Close()
-	check(err)
-	return i
-}
 
 // Catch post request, decode image and store it
 func upload(w http.ResponseWriter, r *http.Request) {
@@ -83,18 +49,18 @@ func upload(w http.ResponseWriter, r *http.Request) {
         }
 
         f, _, err := r.FormFile("image")
-        check(err)
+        errors.Check(err)
         defer f.Close()
 
         // Grab the image data
 	i, _, err := image.Decode(f)
-        check(err)
+        errors.Check(err)
 
 	var key string = keyOf()
 
 	// store image
-	i = storeImage(key, i, 600, "storage")
-	i = storeImage(key, i, 240, "thumbs")
+	i = picstore.Store(key, i, 600, "storage")
+	i = picstore.Store(key, i, 240, "thumbs")
 
 	// generate result
 
@@ -111,19 +77,11 @@ func keyOf() string {
 	return fmt.Sprintf("%x", string(md.Sum()))
 }
 
-// read image by key from storage
-func readImage(key string, storagename string) ([]byte) {
-	storage, _ :=gocask.NewGocask("images/" + storagename)
-	buf, err := storage.Get(key)
-	storage.Close()
-	check(err)
-	return buf
-}
 
 // catch /img request and return image
 func img(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
-	buf := readImage(id, "storage")
+	buf := picstore.Read(id, "storage")
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
@@ -133,7 +91,7 @@ func img(w http.ResponseWriter, r *http.Request) {
 // catch /tmb request and return thumbnail
 func tmb(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
-	buf := readImage(id, "thumbs")
+	buf := picstore.Read(id, "thumbs")
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
@@ -154,9 +112,3 @@ func errorHandler(fn http.HandlerFunc) http.HandlerFunc {
         }
 }
 
-// check aborts the current execution if err is non-nil.
-func check(err os.Error) {
-        if err != nil {
-                panic(err)
-        }
-}
