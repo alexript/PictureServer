@@ -10,7 +10,7 @@ import (
         "os"
         "template"
 	"resize"
-        "crypto/sha1"
+        "crypto/md5"
 	"gocask"
 )
 
@@ -103,11 +103,11 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\"}")
 }
 
-// keyOf returns (part of) the SHA-1 hash of the data, as a hex string.
+// keyOf returns the MD5 hash of the data, as a hex string.
 func keyOf(data []byte) string {
-        sha := sha1.New()
-        sha.Write(data)
-        return fmt.Sprintf("%x", string(sha.Sum())[0:8])
+        md := md5.New()
+        md.Write(data)
+        return fmt.Sprintf("%x", string(md.Sum()))
 }
 
 func img(w http.ResponseWriter, r *http.Request) {
