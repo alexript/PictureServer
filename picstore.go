@@ -8,7 +8,13 @@ import (
 	"image/jpeg"
 	"gocask"
 	"errors"
+	"sync"
 )
+
+var (
+	mu sync.Mutex
+)
+
 
 // Proportional image resize to max size by any side
 func resizeImage(i image.Image, max int) (image.Image) {
@@ -36,19 +42,23 @@ func Store(key string, i image.Image, maxsize int, storename string) (image.Imag
 	errors.Check(err)
 
 	var barray []byte = buf.Bytes()
+	mu.Lock()
 	storage, _ :=gocask.NewGocask("images/" + storename)
 	err = storage.Put(key, barray)
+	storage.Close()
+	mu.Unlock()
 	errors.Check(err)
-	defer storage.Close()
 	return i
 }
 
 // read image by key from storage
 func Read(key string, storagename string) ([]byte) {
+	mu.Lock()
 	storage, _ :=gocask.NewGocask("images/" + storagename)
 	buf, err := storage.Get(key)
+	storage.Close()
+	mu.Unlock()
 	errors.Check(err)
-	defer storage.Close()
 	return buf
 }
 

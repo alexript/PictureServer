@@ -13,7 +13,6 @@ import (
 	"io"
 	"picstore"
 	"errors"
-	"sync"
 )
 
 // Error container struct for error template.
@@ -25,7 +24,6 @@ type Error struct {
 var (
         uploadTemplate, _ = template.ParseFile("templates/upload.html")
         errorTemplate, _  = template.ParseFile("templates/error.html")
-	mu sync.Mutex
 )
 
 // Surprise!!!
@@ -58,10 +56,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	var key string = keyOf()
 
 	// store image
-	mu.Lock()
 	i = picstore.Store(key, i, 600, "storage")
 	i = picstore.Store(key, i, 240, "thumbs")
-	mu.Unlock()
 	// generate result
 
 	w.Header().Set("Content-Type", "application/json")
@@ -81,9 +77,7 @@ func keyOf() string {
 // catch /img request and return image
 func img(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
-	mu.Lock()
 	buf := picstore.Read(id, "storage")
-	mu.Unlock()
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
@@ -93,9 +87,7 @@ func img(w http.ResponseWriter, r *http.Request) {
 // catch /tmb request and return thumbnail
 func tmb(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
-	mu.Lock()
 	buf := picstore.Read(id, "thumbs")
-	mu.Unlock()
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
