@@ -42,8 +42,8 @@ func Store(key string, i image.Image, maxsize int, storename string) (image.Imag
 	var barray []byte = buf.Bytes()
 	storage, _ :=gocask.NewGocask("images/" + storename)
 	err = storage.Put(key, barray)
-	storage.Close()
 	errors.Check(err)
+	defer storage.Close()
 	return i
 }
 
@@ -51,8 +51,8 @@ func Store(key string, i image.Image, maxsize int, storename string) (image.Imag
 func Read(key string, storagename string) ([]byte) {
 	storage, _ :=gocask.NewGocask("images/" + storagename)
 	buf, err := storage.Get(key)
-	storage.Close()
 	errors.Check(err)
+	defer storage.Close()
 	return buf
 }
 
