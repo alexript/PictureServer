@@ -23,15 +23,20 @@ type Error struct {
 // global vars
 var (
         uploadTemplate, _ = template.ParseFile("templates/upload.html")
+		uploadUserTemplate, _ = template.ParseFile("templates/uploaduser.html")
         errorTemplate, _  = template.ParseFile("templates/error.html")
 )
 
 // Surprise!!!
 func main(){
 	http.HandleFunc("/", errorHandler(upload))
+	http.HandleFunc("/usr", errorHandler(uploadUser))
 	http.HandleFunc("/img", errorHandler(img))
 	http.HandleFunc("/tmb", errorHandler(tmb))
-	http.ListenAndServe(":8080",nil)
+	http.HandleFunc("/uimg", errorHandler(uimg))
+	http.HandleFunc("/utmb", errorHandler(utmb))
+	http.HandleFunc("/crp", errorHandler(crp))
+	http.ListenAndServe(":80",nil)
 	
 }
 
@@ -56,14 +61,43 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	var key string = keyOf()
 
 	// store image
-	i = picstore.Store(key, i, 600, "storage")
-	i = picstore.Store(key, i, 240, "thumbs")
+	i = picstore.Store(key, i, 640, "storage")
+	picstore.StoreSubImage(key, i, 184, 640, "crop")
+	i = picstore.Store(key, i, 210, "thumbs")
 	// generate result
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
-	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\"}")
+	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\",\"offerLineThumbUrl\":\"crp?id=" + key + "\"}")
+}
+
+func uploadUser(w http.ResponseWriter, r *http.Request) {
+        if r.Method != "POST" {
+                // No upload; show the upload form.
+                uploadUserTemplate.Execute(w, nil)
+                return
+        }
+
+        f, _, err := r.FormFile("image")
+        errors.Check(err)
+        defer f.Close()
+
+        // Grab the image data
+	i, _, err := image.Decode(f)
+        errors.Check(err)
+
+	var key string = keyOf()
+
+	// store image
+	i = picstore.Store(key, i, 320, "userimg")
+	i = picstore.Store(key, i, 180, "userthumb")
+	// generate result
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expires", "-1")
+	fmt.Fprintf(w,"{\"profilePicUrl\":\"uimg?id=" + key + "\",\"profileThumbUrl\":\"utmb?id=" + key + "\"}")
 }
 
 // keyOf returns the MD5 hash of the current time in nanoseconds, as a hex string.
@@ -78,6 +112,33 @@ func keyOf() string {
 func img(w http.ResponseWriter, r *http.Request) {
 	id := r.FormValue("id")
 	buf := picstore.Read(id, "storage")
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expires", "-1")
+	w.Write(buf)
+}
+
+func uimg(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	buf := picstore.Read(id, "userimg")
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expires", "-1")
+	w.Write(buf)
+}
+
+func utmb(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	buf := picstore.Read(id, "userthumb")
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("cache-control", "no-cache")
+	w.Header().Set("Expires", "-1")
+	w.Write(buf)
+}
+
+func crp(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	buf := picstore.Read(id, "crop")
 	w.Header().Set("Content-Type", "image/jpeg")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
