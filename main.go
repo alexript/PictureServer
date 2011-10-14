@@ -69,7 +69,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("cache-control", "no-cache")
 	w.Header().Set("Expires", "-1")
-	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\",\"offerLineThumbUrl\":\"crp?id=" + key + "\"}")
+	fmt.Fprintf(w,"{\"offerPicUrl\":\"img?id=" + key + "\",\"offerThumbUrl\":\"tmb?id=" + key + "\",\"offerListThumbUrl\":\"crp?id=" + key + "\"}")
 }
 
 func uploadUser(w http.ResponseWriter, r *http.Request) {
